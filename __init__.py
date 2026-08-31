@@ -5,13 +5,14 @@ bl_info = {
     "blender": (4, 4, 3),
     "location": "3D View > Properties> DE Anim Utils",
     "description": "Automatic rig setup for DE armatures",   
+    "doc_url": "https://github.com/MagMallow/DEAnimUtils",    
     "category": "Animation",
     }
 
 import bpy
 import sys
 import os
-import importlib
+## import importlib
 
 from .modules import asset_stuff
 from .modules import bake_stuff
@@ -24,25 +25,26 @@ from .modules import rig_stuff
 PIB_COLL = 'Pib Dummy'
 PIB_OBJ = 'Lil_Pib'
 
-def refresh_blender_scene(context, armature):
-    if not armature:
-        return
-        
-    scene = context.scene
-    current_frame = scene.frame_current
-
-    if armature.animation_data and armature.animation_data.action:
-        action = armature.animation_data.action
-        action.id_data.update_tag()
-        action.fcurves.update()   
-
-    armature.update_tag(refresh={'OBJECT', 'DATA', 'TIME'})
-    context.view_layer.update()
-
-    scene.frame_set(current_frame + 1)
-    scene.frame_set(current_frame)
-    
-    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+## DEBUG
+## def refresh_blender_scene(context, armature):
+##     if not armature:
+##         return
+##         
+##     scene = context.scene
+##     current_frame = scene.frame_current
+## 
+##     if armature.animation_data and armature.animation_data.action:
+##         action = armature.animation_data.action
+##         action.id_data.update_tag()
+##         action.fcurves.update()   
+## 
+##     armature.update_tag(refresh={'OBJECT', 'DATA', 'TIME'})
+##     context.view_layer.update()
+## 
+##     scene.frame_set(current_frame + 1)
+##     scene.frame_set(current_frame)
+##     
+##     bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
 
 def get_scene_armatures(self, context):
     items = []
@@ -86,7 +88,11 @@ class OBJECT_OT_ConvertToIK(bpy.types.Operator):
         
         prettifier.create_bone_collections_from_lists(rig_armature)
         prettifier.apply_bone_widgets(context, rig_armature)        
-             
+
+
+        if rig_armature.animation_data and rig_armature.animation_data.action:
+            bake_stuff.setup_bake_constraints(context, rig_armature, active_obj, rig_stuff.RIG_BONES)
+
         bpy.ops.object.select_all(action='DESELECT')
         rig_armature.select_set(True)
         context.view_layer.objects.active = rig_armature
@@ -96,38 +102,6 @@ class OBJECT_OT_ConvertToIK(bpy.types.Operator):
         refresh_blender_scene(context, rig_armature)         
                              
         self.report({'INFO'}, f"IK armature created: {rig_armature.name}")
-        return {'FINISHED'}
-
-class OBJECT_OT_BakeIKBones(bpy.types.Operator):
-    bl_idname = "object.bake_ik_bones"
-    bl_label = "Bake IK bones"
-    bl_description = "Bakes character animation to IK bones"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-
-        rig_armature = context.active_object
-        
-        if not rig_armature or rig_armature.type != 'ARMATURE' or not rig_armature.name.endswith(" (RIG)"):
-            self.report({'WARNING'}, "Select (RIG) armature!")
-            return {'CANCELLED'}
-
-        original_name = rig_armature.name.replace(" (RIG)", "")
-        original_armature = context.scene.objects.get(original_name)
-
-        if not original_armature:
-            self.report({'ERROR'}, f"Original armature '{original_name}' not found!")
-            return {'CANCELLED'}
-
-        bake_stuff.setup_bake_constraints(context, rig_armature, original_armature, rig_stuff.RIG_BONES)
-        
-        bpy.ops.object.select_all(action='DESELECT')
-        rig_armature.select_set(True)
-        context.view_layer.objects.active = rig_armature        
-        
-        refresh_blender_scene(context, rig_armature)             
-        
-        self.report({'INFO'}, "IK bones baked!")
         return {'FINISHED'}
 
 class OBJECT_OT_Complete(bpy.types.Operator):
@@ -307,11 +281,12 @@ class VIEW3D_PT_DEAnimationUtils_A_IK(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
         
-        row = layout.row(align=True)
-        row.operator("object.convert_to_ik", text="Convert to IK")
-        row.operator("object.bake_ik_bones", text="Bake IK bones")
-        
         col_comp = layout.column(align=True)
+        
+        col_comp.operator("object.convert_to_ik", text="Convert to IK")
+        
+        col_comp.separator(factor=0.5)
+        
         col_comp.operator("object.complete", text="Finalize animation")
         
         col_comp.separator(factor=0.5)
@@ -386,7 +361,6 @@ class VIEW3D_PT_DEAnimationUtils_C_PIB(bpy.types.Panel):
 
 classes = (
     OBJECT_OT_ConvertToIK,
-    OBJECT_OT_BakeIKBones,
     OBJECT_OT_Complete,
     OBJECT_OT_Prepare, 
     OBJECT_OT_SetAssetToR,
