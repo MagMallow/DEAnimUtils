@@ -1,6 +1,6 @@
 # DEAnimUtils
 Blender add-on for automatic Dragon Engine rig setup, and more.
-
+Tested on Blender 4.4.3.
 Location: 3D View > Properties> DE Anim Utils
 ## Features
 * Convert any (in theory) humanoid Dragon Engine armature to IK Rig and vice versa.
