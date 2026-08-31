@@ -12,7 +12,7 @@ bl_info = {
 import bpy
 import sys
 import os
-## import importlib
+
 
 from .modules import asset_stuff
 from .modules import bake_stuff
@@ -25,26 +25,25 @@ from .modules import rig_stuff
 PIB_COLL = 'Pib Dummy'
 PIB_OBJ = 'Lil_Pib'
 
-## DEBUG
-## def refresh_blender_scene(context, armature):
-##     if not armature:
-##         return
-##         
-##     scene = context.scene
-##     current_frame = scene.frame_current
-## 
-##     if armature.animation_data and armature.animation_data.action:
-##         action = armature.animation_data.action
-##         action.id_data.update_tag()
-##         action.fcurves.update()   
-## 
-##     armature.update_tag(refresh={'OBJECT', 'DATA', 'TIME'})
-##     context.view_layer.update()
-## 
-##     scene.frame_set(current_frame + 1)
-##     scene.frame_set(current_frame)
-##     
-##     bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+def refresh_blender_scene(context, armature):
+    if not armature:
+        return
+        
+    scene = context.scene
+    current_frame = scene.frame_current
+
+    if armature.animation_data and armature.animation_data.action:
+        action = armature.animation_data.action
+        action.id_data.update_tag()
+        action.fcurves.update()   
+
+    armature.update_tag(refresh={'OBJECT', 'DATA', 'TIME'})
+    context.view_layer.update()
+
+    scene.frame_set(current_frame + 1)
+    scene.frame_set(current_frame)
+    
+    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
 
 def get_scene_armatures(self, context):
     items = []
