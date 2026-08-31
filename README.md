@@ -28,6 +28,6 @@ Also Pose Library is available for manual applying
 ## PIB
 1. Click __Create Pib Dummy__.
 2. [Optional] Click __Set pib parent bone__. 
-3. [Optional] Select any mesh object and click __Set pib shape__. _Note: This is for visualization purposes only._
+3. [Optional] Select any mesh object and click __Set pib shape__. _Note: For visualization purposes only_
 4. Move Pib Dummy and click __Get pib transform__. Check the System Console for output.
 <img width="873" height="305" alt="image" src="https://github.com/user-attachments/assets/2bbdb74f-8b98-421e-9e1e-64476f990e96" />
