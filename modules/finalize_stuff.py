@@ -10,7 +10,8 @@ CLEAN_MAP = [
 ]
 
 
-def finalize_bake(context, rig_armature, original_armature):
+def finalize_bake(context, rig_armature, original_armature, 
+    clean_twist_bool = False, clean_face_bool = False, clean_phy_bool = False):
 
     scene = context.scene
     frame_start = scene.frame_start
@@ -90,7 +91,13 @@ def finalize_bake(context, rig_armature, original_armature):
                 new_kp.handle_left = kp_data['handle_left']
                 new_kp.handle_right = kp_data['handle_right']
 
-    clean_animation_channels(final_action)
+    if clean_twist_bool:
+        _clean_animation_channels(final_action, '_sup')
+    if clean_face_bool:
+        _clean_animation_channels(final_action, '', '_')
+    if clean_phy_bool:
+        _clean_animation_channels(final_action, '_phy')
+        
     final_action.fcurves.update()
 
     if context.mode != 'OBJECT':
@@ -107,7 +114,7 @@ def finalize_bake(context, rig_armature, original_armature):
     bpy.ops.object.mode_set(mode='OBJECT')
     scene.frame_set(current_frame_orig)
 
-def clean_animation_channels(final_action):
+def _clean_animation_channels(final_action, suffix="", prefix=""):
 
     clean_bones_list = CLEAN_MAP
 
@@ -118,7 +125,14 @@ def clean_animation_channels(final_action):
             parts = curve.data_path.split('"')
             if len(parts) > 1:
                 bone_name = parts[1]
-                if bone_name.endswith("_phy"):
+                     
+                is_target_bone = False
+                if suffix and bone_name.endswith(suffix):
+                    is_target_bone = True
+                if prefix and bone_name.startswith(prefix):
+                    is_target_bone = True
+                    
+                if is_target_bone:
                     curves_to_remove.append(curve)
                 elif bone_name in clean_bones_list and "location" in curve.data_path:
                     curves_to_remove.append(curve)

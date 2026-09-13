@@ -2,6 +2,8 @@ import math
 import os
 import bpy
 
+BUKIS_R = ["buki1_r_n", "buki_r_n", "buki1_n_r", "buki_n_r"]
+BUKIS_L = ["buki1_l_n", "buki_l_n", "buki1_n_l", "buki_n_l"]
 
 def get_or_create_handles_collection():
 
@@ -24,33 +26,30 @@ def equip_asset(operator_instance, asset_armature, char_armature, is_right=True)
         bpy.data.objects.get(char_armature)
         if isinstance(char_armature, str)
         else char_armature
-    )
-
-    if not asset_obj or not char_obj:
-        operator_instance.report(
-            {"ERROR"}, "One or both armatures not found!"
-        )
-        return False
-
-    if asset_obj.type != "ARMATURE":
-        operator_instance.report(
-            {"ERROR"}, "Selected object must be ARMATURE!"
-        )
-        return False
+    )     
 
     asset_name_str = asset_obj.name
     char_name_str = char_obj.name
 
-    if is_right:
+    if is_right:   
         bone_hpos = "rhpos"
-        bone_target = "buki1_r_n"
+        target_list = BUKIS_R
         empty_name = f"buki_r_handle_{char_name_str}_{asset_name_str}"
         side_label = "RIGHT"
-    else:
+    else: 
         bone_hpos = "lhpos"
-        bone_target = "buki1_l_n"
+        target_list = BUKIS_L
         empty_name = f"buki_l_handle_{char_name_str}_{asset_name_str}"
         side_label = "LEFT"
+
+    bone_target = None
+    for bone_name in target_list:
+        if bone_name in char_obj.data.bones:
+            bone_target = bone_name
+            break
+    if not bone_target:
+        operator_instance.report({"ERROR"}, f"Buki bone ({side_label}) not found!")
+        return False
 
     asset_bones = asset_obj.data.bones
     if bone_hpos not in asset_bones or "anm_root" not in asset_bones:
@@ -76,9 +75,9 @@ def equip_asset(operator_instance, asset_armature, char_armature, is_right=True)
     need_empty = True
     pose_bones_char = char_obj.pose.bones
 
-    if "buki1_r_n" in pose_bones_char:
+    if bone_target in pose_bones_char:
         bpy.context.view_layer.update()
-        p_bone = pose_bones_char["buki1_r_n"]
+        p_bone = pose_bones_char[bone_target]
 
         if abs(p_bone.head.y - p_bone.tail.y) > 0.0001:
             need_empty = False
@@ -208,4 +207,3 @@ def set_pattern_pose(context, chosen_armature_name):
             apply_pose_action_to_selected_bones(chosen_armature, found_action, bone_suffix)
 
     return True
-

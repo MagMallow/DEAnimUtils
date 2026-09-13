@@ -7,10 +7,10 @@ def get_pib_transform(pib_coll, pib_obj):
     depsgraph = bpy.context.evaluated_depsgraph_get()
     eval_obj = target_obj.evaluated_get(depsgraph)
 
-    final_matrix = eval_obj.matrix_world
-
-    pib_constraint = target_obj.constraints.get("Pib Parent")
+    final_matrix = eval_obj.matrix_world.copy()
     source_info = f"of the object {target_obj.name} (Global Space)"
+    
+    pib_constraint = target_obj.constraints.get("Pib Parent")
     
     if pib_constraint and pib_constraint.enabled and pib_constraint.target:
         if pib_constraint.target.type == 'ARMATURE' and pib_constraint.subtarget:
@@ -23,23 +23,19 @@ def get_pib_transform(pib_coll, pib_obj):
                 pose_bone = eval_armature.pose.bones[bone_name]
                 
                 bone_world_matrix = eval_armature.matrix_world @ pose_bone.matrix
-                obj_world_matrix = eval_obj.matrix_world
                 
-                final_matrix = bone_world_matrix.inverted() @ obj_world_matrix
-                source_info = f"of the object '{target_obj.name}' LOCAL to the bone '{bone_name}'"
+                final_matrix = bone_world_matrix.inverted() @ eval_obj.matrix_world
+                source_info = f"of the object '{target_obj.name}' LOCAL to the bone '{bone_name}' (from Head)"
 
-    matrix_3x3 = final_matrix.to_3x3()
     location = final_matrix.to_translation()
+    matrix_3x3 = final_matrix.to_3x3()
 
-    # Right (X)
-    blender_x = (matrix_3x3[0][0], matrix_3x3[1][0], matrix_3x3[2][0])
-    # Forward (Y)
-    blender_y = (matrix_3x3[0][1], matrix_3x3[1][1], matrix_3x3[2][1])
-    # Up (Z)
-    blender_z = (matrix_3x3[0][2], matrix_3x3[1][2], matrix_3x3[2][2])
+    blender_x = matrix_3x3.col[0]
+    blender_y = matrix_3x3.col[1]
+    blender_z = matrix_3x3.col[2]
 
     # (x -> -x, y -> z, z -> y)
-    engine_left = (-(-blender_x[0]), blender_x[2], blender_x[1])
+    engine_left = (blender_x[0], blender_x[2], blender_x[1])
     engine_up = (-blender_z[0], blender_z[2], blender_z[1])
     engine_forward = (-blender_y[0], blender_y[2], blender_y[1])
     engine_coords = (-location[0], location[2], location[1])
@@ -66,8 +62,6 @@ def get_pib_transform(pib_coll, pib_obj):
     print(f"Coordinate Y (Up):      {engine_coords[1]:.4f}")
     print(f"Coordinate Z (Forward): {engine_coords[2]:.4f}")
     print("="*60)
-
-import bpy
 
 def set_pib_parent_bone(context, operator, pib_coll, pib_obj):
     pib_collection = bpy.data.collections.get(pib_coll)
@@ -119,9 +113,9 @@ def set_pib_shape(context, operator, pib_coll, pib_obj):
     if not constraint:
         constraint = active_obj.constraints.new(type='COPY_TRANSFORMS')
         constraint.name = constraint_name
-        
-    constraint.target = pib_dummy_obj
-    constraint.enabled = True
+        constraint.mix_mode = 'BEFORE_FULL'        
+        constraint.target = pib_dummy_obj
+        constraint.enabled = True
 
     context.view_layer.update()
     
@@ -146,7 +140,7 @@ def create_pib_dummy(collection_name, object_name):
 
     constraint_name = "Pib Parent"
     con = empty_data.constraints.get(constraint_name) or empty_data.constraints.new(
-        type="COPY_TRANSFORMS"
+        type="COPY_LOCATION"
     )
-    con.name = constraint_name
-    con.mix_mode = "BEFORE_FULL"
+    con.name = constraint_name  
+    con.use_offset = True
