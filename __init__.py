@@ -1,7 +1,7 @@
 bl_info = {
     "name": "DE Anim Utils",
     "author": "MagMallow",
-    "version": (1,1),
+    "version": (1,2),
     "blender": (4, 4, 3),
     "location": "3D View > Properties> DE Anim Utils",
     "description": "Automatic rig setup for DE armatures",   
@@ -176,6 +176,42 @@ class OBJECT_OT_Complete(bpy.types.Operator):
     bl_description = "Bakes and cleans animation for export"
     bl_options = {'REGISTER', 'UNDO'}
 
+    clean_twist_checkbox: bpy.props.BoolProperty(
+        name="Clean _sup channels", 
+        description="Cleans _sup animation channels after Finalize operation",        
+        default=True
+    )
+    clean_face_checkbox: bpy.props.BoolProperty(
+        name="Clean face channels", 
+        description="Cleans face animation channels after Finalize operation",        
+        default=True
+    )
+    clean_phy_checkbox: bpy.props.BoolProperty(
+        name="Clean _phy channels", 
+        description="Cleans _phy animation channels after Finalize operation",        
+        default=True
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        col_comp = layout.column()
+        
+        layout.label(text="Continue?")
+        
+        col_comp.prop(self, "clean_twist_checkbox", text="Clean _sup channels")
+        col_comp.separator(factor=0.5)
+        col_comp.prop(self, "clean_face_checkbox", text="Clean face channels")   
+        col_comp.separator(factor=0.5)
+        col_comp.prop(self, "clean_phy_checkbox", text="Clean _phy channels")  
+
+    def invoke(self, context, event):
+        obj = context.active_object
+        
+        if obj and obj.animation_data and obj.animation_data.action:
+            return context.window_manager.invoke_props_dialog(self, width=350)
+            
+        return self.execute(context)
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -198,16 +234,10 @@ class OBJECT_OT_Complete(bpy.types.Operator):
 
         original_armature.hide_viewport = False
 
-        clean_twist_bool = False
-        clean_face_bool = False    
-        clean_phy_bool = False          
-        if context.scene.clean_twist_checkbox:
-            clean_twist_bool = True
-        if context.scene.clean_face_checkbox:
-            clean_face_bool = True
-        if context.scene.clean_phy_checkbox:
-            clean_phy_bool = True
-            
+        clean_twist_bool = self.clean_twist_checkbox
+        clean_face_bool = self.clean_face_checkbox
+        clean_phy_bool = self.clean_phy_checkbox
+
         if not original_armature:
             self.report({'ERROR'}, f"Original armature '{original_name}' not found!")
             return {'CANCELLED'}
@@ -268,6 +298,19 @@ class OBJECT_OT_Prepare(bpy.types.Operator):
             return {'CANCELLED'}
             
         prepare_stuff.prepare_armature(active_obj)
+        
+        # Set joint offset corresponding to the engine. OOE needs a slightly higher value on the knee.
+        derig_eng = active_obj.data.get("derig_eng", 0)
+        
+        # DE / OE
+        if derig_eng != 3:
+            context.scene.elbow_offset = -0.0003
+            context.scene.knee_offset = 0.0003
+        
+        # OOE
+        if derig_eng == 3:
+            context.scene.elbow_offset = -0.0003
+            context.scene.knee_offset = 0.0005        
         
         self.report({'INFO'}, "Armature is ready!")
         return {'FINISHED'}
@@ -461,16 +504,6 @@ class VIEW3D_PT_DEAnimationUtils_A_IK(bpy.types.Panel):
 
         col_comp.separator(factor=0.5)
         
-        col_comp.prop(scene, "clean_twist_checkbox", text="Clean _sup channels")
-        
-        col_comp.separator(factor=0.5)
-        
-        col_comp.prop(scene, "clean_face_checkbox", text="Clean face channels")   
-        
-        col_comp.separator(factor=0.5)
-        
-        col_comp.prop(scene, "clean_phy_checkbox", text="Clean _phy channels")           
-        
         col_off = layout.column(align=True)
         col_off.prop(scene, "elbow_offset", text="Elbow offset")
         col_off.prop(scene, "knee_offset", text="Knee offset") 
@@ -569,21 +602,6 @@ classes = (
 )
 
 def register():
-    bpy.types.Scene.clean_twist_checkbox = bpy.props.BoolProperty(
-        name="Clean _sup channels",
-        description="Cleans _sup animation channels after Finalize operation",
-        default=True
-    )   
-    bpy.types.Scene.clean_face_checkbox = bpy.props.BoolProperty(
-        name="Clean face channels",
-        description="Cleans face animation channels after Finalize operation",
-        default=True
-    )
-    bpy.types.Scene.clean_phy_checkbox = bpy.props.BoolProperty(
-        name="Clean _phy channels",
-        description="Cleans _phy animation channels after Finalize operation",
-        default=True
-    )
     for cls in classes:
         bpy.utils.register_class(cls)
     # Armature status: 0 - None, 1 - Prepared, 2 - Rig
@@ -626,10 +644,7 @@ def register():
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-        
-    del bpy.types.Scene.clean_twist_checkbox    
-    del bpy.types.Scene.clean_face_checkbox    
-    del bpy.types.Scene.clean_phy_checkbox     
+
     del bpy.types.Scene.elbow_offset
     del bpy.types.Scene.knee_offset
     del bpy.types.Scene.char_armature

@@ -20,6 +20,10 @@ def finalize_bake(context, rig_armature, original_armature,
 
     search_keywords = ['left_hand', 'right_hand', 'face']
     saved_fcurves_data = []
+    
+    # Reveal_bones and collections before baking
+    _reveal_bones(rig_armature)
+    _reveal_bones(original_armature)
 
     # Copy pattern channels data
     if rig_armature.animation_data and rig_armature.animation_data.action:
@@ -139,3 +143,17 @@ def _clean_animation_channels(final_action, suffix="", prefix=""):
                     
     for curve in curves_to_remove:
         final_action.fcurves.remove(curve)
+
+def _reveal_bones(armature_obj):
+    if hasattr(armature_obj.data, "collections"):
+        for col in armature_obj.data.collections:
+            col.is_solo = False
+            col.is_visible = True  
+
+    if armature_obj.pose:
+        for p_bone in armature_obj.pose.bones:
+            p_bone.bone.hide = False
+            
+    if armature_obj.data and armature_obj.data.bones:
+        for d_bone in armature_obj.data.bones:
+            d_bone.hide = False

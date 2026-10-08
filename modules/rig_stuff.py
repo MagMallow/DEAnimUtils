@@ -331,6 +331,9 @@ def transfer_bone_animation(ik_armature, bones_map):
     
 # Link original armature   
 def link_armatures_by_transforms(original_armature, ik_armature):
+    armature_data = original_armature.data
+    _reset_original_armature(original_armature)
+    
     bpy.ops.object.select_all(action='DESELECT')
     original_armature.select_set(True)
     bpy.context.view_layer.objects.active = original_armature
@@ -355,6 +358,15 @@ def link_armatures_by_transforms(original_armature, ik_armature):
     _set_constraint_subtarget(original_armature, 'ude2_r_n','ude2_Of_r_n')
     _set_constraint_subtarget(original_armature, 'ude1_l_n','ude1_Of_l_n')
     _set_constraint_subtarget(original_armature, 'ude2_l_n','ude2_Of_l_n')
+    
+    # OOE / OE
+    # Seperate channels for root bone 
+    if armature_data.get("derig_eng", 0) != 1:
+        bone_center = original_armature.pose.bones["center_n"]
+        bone_center.constraints.remove(bone_center.constraints["CopyTransforms_QR"])
+        con = bone_center.constraints.new(type='COPY_LOCATION')
+        con.target = ik_armature
+        con.subtarget = "center_n"
     
     _delete_temp_objects()
     
@@ -580,7 +592,8 @@ def mirror_anim(armature_obj):
 
 def separate_ketu(arm, target="ketu_c_n", center="center_c_n"):
     scene = bpy.context.scene
-    frames = {
+    
+    bake_settings = {
         "frame_start": scene.frame_start, 
         "frame_end": scene.frame_end, 
         "step": 1, 
@@ -592,47 +605,82 @@ def separate_ketu(arm, target="ketu_c_n", center="center_c_n"):
 
     mt = bpy.data.objects.new("Bake_MT", None)
     bpy.context.collection.objects.link(mt)
-    mt.constraints.new('COPY_TRANSFORMS').target, mt.constraints.get("Copy Transforms").subtarget = arm, target
+    
+    copy_trans = mt.constraints.new('COPY_TRANSFORMS')
+    copy_trans.target = arm
+    copy_trans.subtarget = target
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.ops.object.select_all(action='DESELECT')
     mt.select_set(True)
-    bpy.context.view_layer.objects.active = mt
-    bpy.ops.nla.bake(**frames, bake_types={'OBJECT'})
+    context_active = bpy.context.view_layer.objects.active = mt
     
+    bpy.ops.nla.bake(**bake_settings, bake_types={'OBJECT'})
+    
+    b_target = arm.pose.bones.get(target)
+    b_center = arm.pose.bones.get(center)
+
+    # Clean armature bones
     if arm.animation_data and arm.animation_data.action:
         act = arm.animation_data.action
-        for fc in [fc for fc in act.fcurves if any(fc.data_path.startswith(f'pose.bones["{b}"]') for b in [target, center])]:
+        fcurves_to_remove = [
+            fc for fc in act.fcurves 
+            if fc.data_path.startswith(f'pose.bones["{target}"]') or 
+               fc.data_path.startswith(f'pose.bones["{center}"]')
+        ]
+        for fc in fcurves_to_remove:
             act.fcurves.remove(fc)
 
-    b_k, b_c = arm.pose.bones.get(target), arm.pose.bones.get(center)
-    if b_k:
-        c_z = b_k.constraints.new('COPY_LOCATION')
-        c_z.target, c_z.use_x, c_z.use_y = mt, False, False
-        b_k.constraints.new('COPY_ROTATION').target = mt
-    if b_c:
-        c_xy = b_c.constraints.new('COPY_LOCATION')
-        c_xy.target, c_xy.use_z = mt, False
+    # Reset bone transforms
+    for bone in [b_target, b_center]:
+        if bone:
+            bone.location = (0.0, 0.0, 0.0)
+            if bone.rotation_mode == 'QUATERNION':
+                bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+            else:
+                bone.rotation_euler = (0.0, 0.0, 0.0)
+
+    if b_target:
+        c_loc = b_target.constraints.new('COPY_LOCATION')
+        c_loc.target = mt
+        c_loc.use_x = False
+        c_loc.use_y = False
+        
+        c_rot = b_target.constraints.new('COPY_ROTATION')
+        c_rot.target = mt
+        
+    if b_center:
+        c_loc_xy = b_center.constraints.new('COPY_LOCATION')
+        c_loc_xy.target = mt
+        c_loc_xy.use_z = False
 
     bpy.ops.object.select_all(action='DESELECT')
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.mode_set(mode='POSE')
     
-    for b in arm.pose.bones: 
-        b.bone.select = b.name in [target, center]
+    for bone in arm.pose.bones: 
+        bone.bone.select = (bone.name in [target, center])
         
-    cur_f = scene.frame_current
+    # Set center_c_n Y to -1.14
+    current_frame = scene.frame_current
     scene.frame_set(scene.frame_start)
-    for b in [b_k, b_c]:
-        if b:
-            for p in ["location", "rotation_quaternion"]: b.keyframe_insert(data_path=p)
-    scene.frame_set(cur_f)
+    
+    if b_center:
+        b_center.location.y = -1.14
         
-    bpy.ops.nla.bake(**frames, bake_types={'POSE'}, use_current_action=True)
+    for bone in [b_target, b_center]:
+        if bone:
+            bone.keyframe_insert(data_path="location")
+            bone.keyframe_insert(data_path="rotation_quaternion")
+            
+    scene.frame_set(current_frame)
+        
+    bpy.ops.nla.bake(**bake_settings, bake_types={'POSE'}, use_current_action=True)
     
     bpy.ops.object.mode_set(mode='OBJECT')
     bpy.data.objects.remove(mt, do_unlink=True)
+    
     return True
 
 def _set_constraint_subtarget(arm_obj, bone_name, target, constraint_name="CopyTransforms_QR"):
@@ -673,3 +721,14 @@ def add_keys_if_empty(arm_obj, bone_map):
         if p_bone and not any(f'pose.bones["{name}"]' in path for path in fcurves_paths):
             for transform in ('location', 'rotation_quaternion', 'scale'):
                 p_bone.keyframe_insert(data_path=transform, frame=1)
+
+def _reset_original_armature(arm_obj):
+    if arm_obj.animation_data:
+        arm_obj.animation_data.action.use_fake_user = True
+        arm_obj.animation_data.action = None
+
+    for bone in arm_obj.pose.bones:
+        bone.location = (0, 0, 0)
+        bone.rotation_quaternion = (1, 0, 0, 0)
+        bone.rotation_euler = (0, 0, 0)
+        bone.scale = (1, 1, 1)

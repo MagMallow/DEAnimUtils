@@ -7,7 +7,8 @@ MAIN = [
 'shoulder r', 'shoulder l',
 'Hand IK R', 'Hand IK L', 'Foot IK R', 'Foot IK L',
 'Arm Pole R', 'Arm Pole L', 'Leg Pole R', 'Leg Pole L',
-'toe r', 'toe l'
+'toe r', 'toe l',
+'sync_c_n'
 ]
 
 TWIST = [
@@ -128,8 +129,8 @@ def apply_bone_widgets(context, rig_armature):
         "pattern_c_n": ('THEME03', "cs_pattern", 4000.0),
         "head": ('THEME11', "cs_circle_head", 1.0),   
         "neck": ('THEME11', "cs_circle_head", 1.0),
-        "spine1": ('THEME10', "cs_circle_spine_01", 1.0),   
-        "spine2": ('THEME10', "cs_circle_spine_02", 1.0),
+        "spine1": ('THEME02', "cs_circle_spine_01", 1.0),   
+        "spine2": ('THEME02', "cs_circle_spine_02", 1.0),
         "shoulder r": ('THEME05', "cs_shoulder", 1.0),   
         "shoulder l": ('THEME05', "cs_shoulder", 1.0),
         "Arm Pole R": ('THEME04', "cs_sphere_pole", 1.0),
@@ -138,6 +139,7 @@ def apply_bone_widgets(context, rig_armature):
         "Leg Pole L": ('THEME09', "cs_sphere_pole", 1.0),
         "toe r": ('THEME11', "cs_circle_toe", 1.0),
         "toe l": ('THEME11', "cs_circle_toe", 1.0),
+        "sync_c_n": ('THEME11', "cs_sync", 4000.0),
         #OE
         "Root": ('THEME01', "cs_circle_root", 4000.0)
     }   
@@ -171,29 +173,30 @@ def apply_bone_widgets(context, rig_armature):
 
 def check_widgets():
 
-    if "Widgets" in bpy.data.collections:
-        return True
+    widgets_coll = bpy.data.collections.get("Widgets")
+    
+    if not widgets_coll:
+        lib_path = bpy.context.preferences.filepaths.asset_libraries["DE Hand Patterns"].path
+        path_to_blend = os.path.join(lib_path, "hand_patterns.blend")
 
-    lib_path = bpy.context.preferences.filepaths.asset_libraries["DE Hand Patterns"].path
-    path_to_blend = os.path.join(lib_path, "hand_patterns.blend")
+        try:
+            bpy.ops.wm.append(
+                filepath=os.path.join(path_to_blend, "Collection", "Widgets"),
+                directory=os.path.join(path_to_blend, "Collection"),
+                filename="Widgets"
+            )
+            widgets_coll = bpy.data.collections.get("Widgets")
+        except Exception as e:
+            print(f"Failed to import widget collection: {str(e)}")
+            return False
 
-    try:
-        bpy.ops.wm.append(
-            filepath=os.path.join(path_to_blend, "Collection", "Widgets"),
-            directory=os.path.join(path_to_blend, "Collection"),
-            filename="Widgets"
-        )
+    if widgets_coll:
+        widgets_coll.hide_viewport = True
+        widgets_coll.hide_render = True
         
-        widgets_coll = bpy.data.collections.get("Widgets")
-        if widgets_coll:
-            widgets_coll.hide_viewport = True
-            widgets_coll.hide_render = True
+        if widgets_coll.name not in bpy.context.scene.collection.children:
+            bpy.context.scene.collection.children.link(widgets_coll)
             
-            if widgets_coll.name not in bpy.context.scene.collection.children:
-                bpy.context.scene.collection.children.link(widgets_coll)
-                
         return True
-
-    except Exception as e:
-        print(f"Failed to import widget collection: {str(e)}")
-        return False
+        
+    return False

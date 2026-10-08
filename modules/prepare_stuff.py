@@ -61,12 +61,18 @@ CONNECT_BONES = {
 'kou_l_n': 'koyu1_l_n',
 'kou_l': 'koyu1_l',
 'kou_r_n': 'koyu1_r_n',
-'kou_r': 'koyu1_r'
+'kou_r': 'koyu1_r',
+'ketu_n': 'asi1_r_n',
+'kosi_n': 'mune_n',
+'mune_n': 'kubi_n',
+'kubi_n': 'face'
+# 'face_n': '_eyebrow_r'
 }
 
 FLAT_BONES = [
 'koyu3_r_n', 'kusu3_r_n', 'naka3_r_n', 'hito3_r_n', 'oya3_r_n', 
-'koyu3_l_n', 'kusu3_l_n', 'naka3_l_n', 'hito3_l_n', 'oya3_l_n'
+'koyu3_l_n', 'kusu3_l_n', 'naka3_l_n', 'hito3_l_n', 'oya3_l_n',
+'center_c_n', 'sync_c_n'
 ]
 
 def prepare_armature(armature_obj):
@@ -134,7 +140,7 @@ def prepare_armature(armature_obj):
     _flatten_bone(armature_obj, "kubi_n", "Y")
     _align_tail_to_parent(armature_obj, "face", 1.7)
     _flatten_bone(armature_obj, "face", "Y")
-    
+
     # OE
     if armature_obj.data.get("derig_eng", 0) == 2:
         src = edit_bones["ketu_c_n"]
