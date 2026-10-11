@@ -362,11 +362,15 @@ def link_armatures_by_transforms(original_armature, ik_armature):
     # OOE / OE
     # Seperate channels for root bone 
     if armature_data.get("derig_eng", 0) != 1:
-        bone_center = original_armature.pose.bones["center_n"]
+        if armature_data.get("derig_eng", 0) == 3:
+            center_name = "center_n"
+        else:
+            center_name = "center_c_n"
+        bone_center = original_armature.pose.bones[center_name]
         bone_center.constraints.remove(bone_center.constraints["CopyTransforms_QR"])
         con = bone_center.constraints.new(type='COPY_LOCATION')
         con.target = ik_armature
-        con.subtarget = "center_n"
+        con.subtarget = center_name
     
     _delete_temp_objects()
     

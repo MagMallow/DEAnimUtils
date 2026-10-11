@@ -31,13 +31,15 @@ def equip_asset(operator_instance, asset_armature, char_armature, is_right=True)
     asset_name_str = asset_obj.name
     char_name_str = char_obj.name
 
+    reset_asset_pose(asset_armature)
+
     if is_right:   
-        bone_hpos = "rhpos"
+        bone_hpos_str = "rhpos"
         target_list = BUKIS_R
         empty_name = f"buki_r_handle_{char_name_str}_{asset_name_str}"
         side_label = "RIGHT"
     else: 
-        bone_hpos = "lhpos"
+        bone_hpos_str = "lhpos"
         target_list = BUKIS_L
         empty_name = f"buki_l_handle_{char_name_str}_{asset_name_str}"
         side_label = "LEFT"
@@ -52,20 +54,32 @@ def equip_asset(operator_instance, asset_armature, char_armature, is_right=True)
         return False
 
     asset_bones = asset_obj.data.bones
-    if bone_hpos not in asset_bones or "anm_root" not in asset_bones:
+  
+    bone_hpos = next((b.name for b in asset_bones if bone_hpos_str in b.name), None)
+
+    if not bone_hpos:
         operator_instance.report(
             {"ERROR"},
-            f"Object {asset_name_str} doesn't have {bone_hpos} or anm_root!",
+            f"Object {asset_name_str} doesn't have {bone_hpos_str}!",
+        )
+        return False        
+
+    if not asset_bones.get(bone_hpos).parent:
+        operator_instance.report(
+            {"ERROR"},
+            f"Bone {bone_hpos} does not have a parent bone!",
         )
         return False
-
+        
+    anm_root_name = asset_bones.get(bone_hpos).parent.name
+    
     original_mode = asset_obj.mode
     bpy.context.view_layer.objects.active = asset_obj
     bpy.ops.object.mode_set(mode="EDIT")
 
     edit_bones = asset_obj.data.edit_bones
     eb_hpos = edit_bones.get(bone_hpos)
-    eb_anm_root = edit_bones.get("anm_root")
+    eb_anm_root = edit_bones.get(anm_root_name)
 
     eb_hpos.parent = None
     eb_anm_root.parent = eb_hpos
@@ -207,3 +221,12 @@ def set_pattern_pose(context, chosen_armature_name):
             apply_pose_action_to_selected_bones(chosen_armature, found_action, bone_suffix)
 
     return True
+
+def reset_asset_pose(asset_obj):
+ 
+    for p_bone in asset_obj.pose.bones:
+        p_bone.location = (0.0, 0.0, 0.0)
+        p_bone.rotation_euler = (0.0, 0.0, 0.0)
+        p_bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+        p_bone.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
+        p_bone.scale = (1.0, 1.0, 1.0)

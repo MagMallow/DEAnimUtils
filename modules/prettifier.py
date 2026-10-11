@@ -171,21 +171,40 @@ def apply_bone_widgets(context, rig_armature):
 
     bpy.ops.object.mode_set(mode='OBJECT')
 
-def check_widgets():
+def find_collection_recursive(parent_collection, name):
+    if parent_collection.name == name:
+        return parent_collection
+    for child in parent_collection.children:
+        found = find_collection_recursive(child, name)
+        if found:
+            return found
+    return None
 
-    widgets_coll = bpy.data.collections.get("Widgets")
+def check_widgets():
+    root_coll = bpy.context.scene.collection
+    widgets_coll = find_collection_recursive(root_coll, "Widgets")
     
+    if not widgets_coll:
+        old_coll = bpy.data.collections.get("Widgets")
+        if old_coll:
+            root_coll.children.link(old_coll)
+            widgets_coll = old_coll
+
     if not widgets_coll:
         lib_path = bpy.context.preferences.filepaths.asset_libraries["DE Hand Patterns"].path
         path_to_blend = os.path.join(lib_path, "hand_patterns.blend")
 
         try:
-            bpy.ops.wm.append(
-                filepath=os.path.join(path_to_blend, "Collection", "Widgets"),
-                directory=os.path.join(path_to_blend, "Collection"),
-                filename="Widgets"
-            )
+            with bpy.data.libraries.load(path_to_blend, link=False) as (data_from, data_to):
+                if "Widgets" in data_from.collections:
+                    data_to.collections = ["Widgets"]
+            
             widgets_coll = bpy.data.collections.get("Widgets")
+            if widgets_coll:
+                widgets_coll_in_scene = find_collection_recursive(root_coll, "Widgets")
+                if not widgets_coll_in_scene:
+                    root_coll.children.link(widgets_coll)
+                
         except Exception as e:
             print(f"Failed to import widget collection: {str(e)}")
             return False
@@ -193,10 +212,6 @@ def check_widgets():
     if widgets_coll:
         widgets_coll.hide_viewport = True
         widgets_coll.hide_render = True
-        
-        if widgets_coll.name not in bpy.context.scene.collection.children:
-            bpy.context.scene.collection.children.link(widgets_coll)
-            
         return True
         
     return False
